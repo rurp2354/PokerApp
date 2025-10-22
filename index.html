@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-950">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poker Ledger</title>
+    <!-- Load Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use a modern, clean font -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Create a stacking context for pseudo-elements */
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Create the glowing gradient blobs */
+        body::before,
+        body::after {
+            content: '';
+            position: fixed;
+            z-index: -1;
+            border-radius: 50%;
+            filter: blur(100px); /* This creates the soft glow */
+            opacity: 0.3;
+        }
+
+        /* Top-left cyan blob */
+        body::before {
+            background: linear-gradient(to right, #06b6d4, #3b82f6);
+            width: 300px;
+            height: 300px;
+            top: -50px;
+            left: -100px;
+            animation: pulse-cyan 10s infinite alternate;
+        }
+
+        /* Bottom-right pink blob */
+        body::after {
+            background: linear-gradient(to right, #d946ef, #ec4899);
+            width: 400px;
+            height: 400px;
+            bottom: -100px;
+            right: -150px;
+            animation: pulse-pink 12s infinite alternate;
+        }
+
+        @keyframes pulse-cyan {
+            0% { transform: scale(0.9); opacity: 0.2; }
+            100% { transform: scale(1.1); opacity: 0.4; }
+        }
+        @keyframes pulse-pink {
+            0% { transform: scale(1.1); opacity: 0.4; }
+            100% { transform: scale(0.9); opacity: 0.2; }
+        }
+
+        /* Glassmorphism card style */
+        .glass-card {
+            @apply bg-black/20 backdrop-blur-md border border-white/10 rounded-xl shadow-lg;
+        }
+
+        /* Neon button style */
+        .neon-button {
+            @apply bg-fuchsia-600 text-white font-bold py-2 px-4 rounded-full transition-all;
+            /* Neon glow effect */
+            box-shadow: 0 0 5px theme('colors.fuchsia.500'),
+                        0 0 10px theme('colors.fuchsia.500'),
+                        0 0 15px theme('colors.fuchsia.600');
+        }
+        .neon-button:hover {
+            box-shadow: 0 0 10px theme('colors.fuchsia.400'),
+                        0 0 20px theme('colors.fuchsia.400'),
+                        0 0 30px theme('colors.fuchsia.500');
+            @apply bg-fuchsia-500;
+        }
+
+        /* Simple spinner for loading */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #d946ef; /* Fuchsia spinner */
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Styles for active and inactive tabs */
+        .tab-btn {
+            @apply flex-1 py-3 px-2 text-center font-medium text-gray-400 border-b-2 border-transparent transition-colors;
+        }
+        .tab-btn.active {
+            @apply text-fuchsia-400 border-fuchsia-400;
+        }
+        .tab-btn:hover {
+            @apply text-gray-200;
+        }
+        
+        /* Hide content sections by default */
+        .tab-content {
+            display: none;
+        }
+    </style>
+</head>
+<body class="h-full text-gray-100">
+    <!-- Main container with overflow-x-hidden to contain gradients -->
+    <div class="container mx-auto max-w-lg p-4 overflow-x-hidden">
+
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
+            <h1 class="text-3xl font-bold text-white">Poker Ledger</h1>
+            <div class="text-right">
+                <span class="text-xs text-gray-400 block">App ID:</span>
+                <span id="appIdDisplay" class="text-sm font-mono text-fuchsia-400">Loading...</span>
+            </div>
+        </header>
+
+        <!-- Loading Indicator -->
+        <div id="loading" class="flex justify-center items-center h-64">
+            <div class="loader"></div>
+        </div>
+
+        <!-- Main Content (Hidden until loaded) -->
+        <main id="mainContent" class="hidden">
+
+            <!-- Tab Navigation -->
+            <nav class="flex mb-6 glass-card overflow-hidden !rounded-full">
+                <button id="tab-current" class="tab-btn active" data-content="currentGameContent">Current</button>
+                <button id="tab-leaderboard" class="tab-btn" data-content="leaderboardContent">Leaderboard</button>
+                <button id="tab-history" class="tab-btn" data-content="historyContent">History</button>
+            </nav>
+
+            <!-- Tab Content: Current Game -->
+            <div id="currentGameContent" class="tab-content" style="display: block;">
+                <!-- Add New Player Form -->
+                <div class="glass-card p-4 mb-6">
+                    <h2 class="text-xl font-semibold mb-3">Add Player to Game</h2>
+                    <form id="addPlayerForm" class="flex flex-col sm:flex-row gap-3">
+                        <input type="text" id="playerName" placeholder="Player Name" class="flex-grow bg-black/20 text-white p-2 rounded-lg border border-white/10 focus:outline-none focus:ring-2 focus:ring-fuchsia-500" required>
+                        <input type="number" id="playerBuyIn" placeholder="Initial Buy-In ($)" class="bg-black/20 text-white p-2 rounded-lg border border-white/10 focus:outline-none focus:ring-2 focus:ring-fuchsia-500" required>
+                        <button type="submit" class="neon-button !py-2 !px-4 !rounded-lg">
+                            Add
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Current Game State -->
+                <div>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-semibold">Current Game</h2>
+                        <button id="clearGame" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-1 px-3 rounded-full text-sm transition-colors shadow-[0_0_10px_rgba(220,38,38,0.7)]">
+                            End & Save Game
+                        </button>
+                    </div>
+                    
+                    <!-- Player List -->
+                    <div id="playerList" class="space-y-4">
+                        <!-- Players will be dynamically added here -->
+                    </div>
+
+                    <!-- Game Totals -->
+                    <div class="glass-card p-4 mt-6 border-t-2 border-fuchsia-500">
+                        <h3 class="text-xl font-semibold mb-3">Game Totals</h3>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-300">Total Pot (All Buy-Ins):</span>
+                            <span id="totalPot" class="text-2xl font-bold text-fuchsia-400">$0</span>
+                        </div>
+                        <div class="flex justify-between items-center mt-2">
+                            <span class="text-gray-300">Total Cashed Out:</span>
+                            <span id="totalCashedOut" class="text-2xl font-bold text-white">$0</span>
+                        </div>
+                        <div class="flex justify-between items-center mt-3 pt-3 border-t border-white/10">
+                            <span class="text-gray-300 font-bold">Difference:</span>
+                            <span id="totalDifference" class="text-2xl font-bold text-red-500">$0</span>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Note: "Difference" should be $0 before ending the game.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Leaderboard -->
+            <div id="leaderboardContent" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4">Overall Leaderboard</h2>
+                <div id="leaderboardList" class="space-y-3">
+                    <!-- Leaderboard will be dynamically added here -->
+                </div>
+            </div>
+
+            <!-- Tab Content: Game History -->
+            <div id="historyContent" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4">Game History</h2>
+                <div id="gameHistoryList" class="space-y-4">
+                    <!-- Game history will be dynamically added here -->
+                </div>
+            </div>
+            
+        </main>
+        
+        <!-- Custom Modal for user input -->
+        <div id="customModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center p-4 z-50">
+            <div class="glass-card p-6 w-full max-w-sm">
+                <h3 id="modalTitle" class="text-xl font-semibold mb-4">Modal Title</h3>
+                <p id="modalMessage" class="text-gray-300 mb-4">Modal message</p>
+                <input type="number" id="modalInput" placeholder="Enter amount ($)" class="w-full bg-black/20 text-white p-2 rounded-lg border border-white/10 focus:outline-none focus:ring-2 focus:ring-fuchsia-500 mb-4">
+                <div class="flex justify-end gap-3">
+                    <button id="modalCancel" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-full transition-colors">Cancel</button>
+                    <button id="modalConfirm" class="neon-button !py-2 !px-4">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import Firebase services
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            getDoc, 
+            addDoc, 
+            setDoc, 
+            updateDoc, 
+            deleteDoc, 
+            onSnapshot, 
+            collection, 
+            query, 
+            where,
+            writeBatch,
+            getDocs,
+            Timestamp
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- GLOBAL VARIABLES ---
+        let db, auth;
+        let userId, appId;
+        let currentGameCollectionRef, playersCollectionRef, gamesCollectionRef;
+        let currentPlayersData = []; 
+
+        // --- DOM Elements ---
+        const loadingDiv = document.getElementById('loading');
+        const mainContent = document.getElementById('mainContent');
+        const appIdDisplay = document.getElementById('appIdDisplay');
+        const addPlayerForm = document.getElementById('addPlayerForm');
+        const playerNameInput = document.getElementById('playerName');
+        const playerBuyInInput = document.getElementById('playerBuyIn');
+        const playerListDiv = document.getElementById('playerList');
+        const clearGameBtn = document.getElementById('clearGame');
+        const totalPotEl = document.getElementById('totalPot');
+        const totalCashedOutEl = document.getElementById('totalCashedOut');
+        const totalDifferenceEl = document.getElementById('totalDifference');
+        
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const leaderboardListDiv = document.getElementById('leaderboardList');
+        const gameHistoryListDiv = document.getElementById('gameHistoryList');
+        
+        const customModal = document.getElementById('customModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        const modalInput = document.getElementById('modalInput');
+        const modalCancel = document.getElementById('modalCancel');
+        const modalConfirm = document.getElementById('modalConfirm');
+        
+        let modalResolve = null;
+
+        // --- INITIALIZATION ---
+        
+        async function initFirebase() {
+            try {
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-poker-app';
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+                appIdDisplay.textContent = appId;
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                await setPersistence(auth, inMemoryPersistence);
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        const basePath = `artifacts/${appId}/public/data`;
+                        currentGameCollectionRef = collection(db, `${basePath}/current-game`);
+                        playersCollectionRef = collection(db, `${basePath}/players`); 
+                        gamesCollectionRef = collection(db, `${basePath}/games`); 
+                        
+                        listenForCurrentGame();
+                        listenForLeaderboard();
+                        listenForGameHistory();
+                    } else {
+                        console.log("User is signed out.");
+                    }
+                });
+
+            } catch (error) {
+                console.error("Firebase Initialization Error:", error);
+                loadingDiv.textContent = "Error loading app. Please refresh.";
+            }
+        }
+
+        // --- DATA LISTENERS ---
+
+        function listenForCurrentGame() {
+            if (!currentGameCollectionRef) return;
+            onSnapshot(query(currentGameCollectionRef), (snapshot) => {
+                const players = [];
+                snapshot.forEach((doc) => {
+                    players.push({ id: doc.id, ...doc.data() });
+                });
+                
+                currentPlayersData = players; 
+                renderCurrentGame(players);
+                
+                loadingDiv.style.display = 'none';
+                mainContent.style.display = 'block';
+            }, (error) => {
+                console.error("Error listening to current game:", error);
+            });
+        }
+
+        function listenForLeaderboard() {
+            if (!playersCollectionRef) return;
+            onSnapshot(query(playersCollectionRef), (snapshot) => {
+                const players = [];
+                snapshot.forEach((doc) => {
+                    players.push({ id: doc.id, ...doc.data() });
+                });
+                renderLeaderboard(players);
+            }, (error) => {
+                console.error("Error listening to leaderboard:", error);
+            });
+        }
+
+        function listenForGameHistory() {
+            if (!gamesCollectionRef) return;
+            onSnapshot(query(gamesCollectionRef), (snapshot) => {
+                const games = [];
+                snapshot.forEach((doc) => {
+                    games.push({ id: doc.id, ...doc.data() });
+                });
+                renderGameHistory(games);
+            }, (error) => {
+                console.error("Error listening to game history:", error);
+            });
+        }
+
+        // --- UI RENDERING ---
+
+        function renderCurrentGame(players) {
+            playerListDiv.innerHTML = ''; 
+            let totalPot = 0;
+            let totalCashedOut = 0;
+
+            if (players.length === 0) {
+                playerListDiv.innerHTML = '<p class="text-gray-400 text-center">No players in the game yet.</p>';
+            }
+
+            players.forEach(player => {
+                totalPot += player.buyIn || 0;
+                totalCashedOut += player.cashedOut || 0;
+                
+                const pl = (player.cashedOut || 0) - (player.buyIn || 0);
+                const plColor = pl > 0 ? 'text-green-400' : (pl < 0 ? 'text-red-400' : 'text-gray-400');
+                const plSign = pl > 0 ? '+' : '';
+
+                const playerCard = document.createElement('div');
+                playerCard.className = 'glass-card p-4'; // Use glass-card
+                playerCard.innerHTML = `
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-xl font-bold">${player.name}</span>
+                        <span class="text-lg font-mono ${plColor}">P/L: ${plSign}$${pl}</span>
+                    </div>
+                    <div class="flex justify-between text-sm mb-4">
+                        <span class="text-gray-400">In for: <span class="text-white">$${player.buyIn || 0}</span></span>
+                        <span class="text-gray-400">Cashed Out: <span class="text-white">$${player.cashedOut || 0}</span></span>
+                    </div>
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <button data-id="${player.id}" data-name="${player.name}" class="add-rebuy-btn flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-full text-sm transition-colors shadow-lg">
+                            Add Re-buy
+                        </button>
+                        <button data-id="${player.id}" data-name="${player.name}" class="cash-out-btn flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-full text-sm transition-colors shadow-lg">
+                            Cash Out
+                        </button>
+                    </div>
+                `;
+                playerListDiv.appendChild(playerCard);
+            });
+
+            document.querySelectorAll('.add-rebuy-btn').forEach(btn => btn.addEventListener('click', handleAddRebuy));
+            document.querySelectorAll('.cash-out-btn').forEach(btn => btn.addEventListener('click', handleCashOut));
+
+            totalPotEl.textContent = `$${totalPot}`;
+            totalCashedOutEl.textContent = `$${totalCashedOut}`;
+            const difference = totalPot - totalCashedOut;
+            totalDifferenceEl.textContent = `$${difference}`;
+            totalDifferenceEl.className = `text-2xl font-bold ${difference !== 0 ? 'text-red-500' : 'text-green-500'}`;
+        }
+
+        function renderLeaderboard(players) {
+            leaderboardListDiv.innerHTML = '';
+            if (players.length === 0) {
+                leaderboardListDiv.innerHTML = '<p class="text-gray-400 text-center">No players in the database yet.</p>';
+                return;
+            }
+            
+            players.sort((a, b) => (b.overallProfitLoss || 0) - (a.overallProfitLoss || 0));
+
+            players.forEach(player => {
+                const pl = player.overallProfitLoss || 0;
+                const plColor = pl > 0 ? 'text-green-400' : (pl < 0 ? 'text-red-400' : 'text-gray-400');
+                const plSign = pl > 0 ? '+' : '';
+
+                const playerEl = document.createElement('div');
+                playerEl.className = 'glass-card p-4 flex justify-between items-center'; // Use glass-card
+                playerEl.innerHTML = `
+                    <span class="text-xl font-bold">${player.name}</span>
+                    <span class="text-lg font-mono ${plColor}">P/L: ${plSign}$${pl}</span>
+                `;
+                leaderboardListDiv.appendChild(playerEl);
+            });
+        }
+
+        function renderGameHistory(games) {
+            gameHistoryListDiv.innerHTML = '';
+            if (games.length === 0) {
+                gameHistoryListDiv.innerHTML = '<p class="text-gray-400 text-center">No game history yet. End a game to save it!</p>';
+                return;
+            }
+
+            games.sort((a, b) => b.date.toMillis() - a.date.toMillis());
+
+            games.forEach(game => {
+                const gameDate = game.date.toDate().toLocaleDateString('en-US', {
+                    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+                
+                const gameCard = document.createElement('div');
+                gameCard.className = 'glass-card p-4'; // Use glass-card
+                gameCard.innerHTML = `
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="text-xl font-semibold">${gameDate}</span>
+                        <span class="text-gray-400">Pot: <span class="text-fuchsia-400 font-bold">$${game.totalPot || 0}</span></span>
+                    </div>
+                    <div class="space-y-2">
+                        ${game.players.map(p => `
+                            <div class="flex justify-between text-sm p-2 bg-black/20 rounded-md">
+                                <span>${p.name}</span>
+                                <span class="${p.pl > 0 ? 'text-green-400' : (p.pl < 0 ? 'text-red-400' : 'text-gray-400')}">
+                                    ${p.pl > 0 ? '+' : ''}$${p.pl}
+                                </span>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                gameHistoryListDiv.appendChild(gameCard);
+            });
+        }
+
+        // --- EVENT HANDLERS & DATABASE ACTIONS ---
+
+        function handleTabClick(e) {
+            const clickedTab = e.target;
+            const contentId = clickedTab.dataset.content;
+
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            clickedTab.classList.add('active');
+
+            tabContents.forEach(content => {
+                if (content.id === contentId) {
+                    content.style.display = 'block';
+                } else {
+                    content.style.display = 'none';
+                }
+            });
+        }
+        
+        function showCustomModal(title, message, placeholder = 'Enter amount ($)') {
+            return new Promise((resolve) => {
+                modalTitle.textContent = title;
+                modalMessage.textContent = message;
+                modalInput.value = '';
+                modalInput.placeholder = placeholder;
+                customModal.style.display = 'flex';
+                
+                modalResolve = resolve; 
+            });
+        }
+        
+        modalConfirm.addEventListener('click', () => {
+            const value = parseFloat(modalInput.value);
+            if (!isNaN(value) && value >= 0) {
+                customModal.style.display = 'none';
+                if (modalResolve) modalResolve(value);
+            } else {
+                modalInput.classList.add('ring-2', 'ring-red-500');
+                setTimeout(() => modalInput.classList.remove('ring-2', 'ring-red-500'), 2000);
+            }
+        });
+
+        modalCancel.addEventListener('click', () => {
+            customModal.style.display = 'none';
+            if (modalResolve) modalResolve(null);
+        });
+
+        async function getOrCreatePlayer(name) {
+            const q = query(playersCollectionRef, where("name", "==", name));
+            const querySnapshot = await getDocs(q);
+            
+            if (querySnapshot.empty) {
+                const newPlayerDoc = await addDoc(playersCollectionRef, {
+                    name: name,
+                    overallProfitLoss: 0
+                });
+                return newPlayerDoc.id;
+            } else {
+                return querySnapshot.docs[0].id;
+            }
+        }
+
+        async function handleAddPlayer(e) {
+            e.preventDefault();
+            const name = playerNameInput.value.trim();
+            const buyIn = parseFloat(playerBuyInInput.value);
+
+            if (name && buyIn > 0) {
+                try {
+                    const playerId = await getOrCreatePlayer(name);
+                    
+                    await addDoc(currentGameCollectionRef, {
+                        masterPlayerId: playerId, 
+                        name: name,
+                        buyIn: buyIn,
+                        cashedOut: 0
+                    });
+                    
+                    playerNameInput.value = '';
+                    playerBuyInInput.value = '';
+                } catch (error) {
+                    console.error("Error adding player:", error);
+                }
+            }
+        }
+
+        async function handleAddRebuy(e) {
+            const playerId = e.target.dataset.id;
+            const playerName = e.target.dataset.name;
+            const amount = await showCustomModal('Add Re-buy', `Enter re-buy amount for ${playerName}:`);
+            
+            if (amount === null || amount <= 0) return;
+
+            try {
+                const playerDocRef = doc(db, currentGameCollectionRef.path, playerId);
+                const playerDoc = await getDoc(playerDocRef);
+                if (playerDoc.exists()) {
+                    const currentBuyIn = playerDoc.data().buyIn || 0;
+                    await updateDoc(playerDocRef, {
+                        buyIn: currentBuyIn + amount
+                    });
+                }
+            } catch (error) {
+                console.error("Error adding re-buy:", error);
+            }
+        }
+
+        async function handleCashOut(e) {
+            const playerId = e.target.dataset.id;
+            const playerName = e.target.dataset.name;
+            const amount = await showCustomModal('Cash Out', `Enter final chip stack value for ${playerName}:`, 'Final chip value ($)');
+
+            if (amount === null || amount < 0) return; 
+
+            try {
+                const playerDocRef = doc(db, currentGameCollectionRef.path, playerId);
+                await updateDoc(playerDocRef, {
+                    cashedOut: amount
+                });
+            } catch (error) {
+                console.error("Error cashing out:", error);
+            }
+        }
+
+        async function handleClearGame() {
+            if (currentPlayersData.length === 0) {
+                console.log("No players in the game to save.");
+                return;
+            }
+            
+            let totalPot = 0;
+            let totalCashedOut = 0;
+            const playersForHistory = [];
+
+            currentPlayersData.forEach(p => {
+                const pl = (p.cashedOut || 0) - (p.buyIn || 0);
+                totalPot += p.buyIn || 0;
+                totalCashedOut += p.cashedOut || 0;
+                playersForHistory.push({
+                    masterPlayerId: p.masterPlayerId,
+                    name: p.name,
+                    buyIn: p.buyIn || 0,
+                    cashedOut: p.cashedOut || 0,
+                    pl: pl
+                });
+            });
+
+            const difference = totalPot - totalCashedOut;
+
+            const confirmationMsg = difference !== 0 
+                ? `The pot is unbalanced by $${difference}. Are you sure you want to end and save?`
+                : 'Are you sure you want to end and save this game to history?';
+                
+            const confirmation = await showCustomModal('End Game?', confirmationMsg, 'Type 1 to confirm');
+            
+            if (confirmation !== 1) return;
+
+            try {
+                const batch = writeBatch(db);
+
+                const gameDocRef = doc(collection(db, gamesCollectionRef.path));
+                batch.set(gameDocRef, {
+                    date: Timestamp.now(),
+                    totalPot: totalPot,
+                    totalCashedOut: totalCashedOut,
+                    players: playersForHistory
+                });
+
+                for (const player of playersForHistory) {
+                    const playerRef = doc(db, playersCollectionRef.path, player.masterPlayerId);
+                    const playerDoc = await getDoc(playerRef); 
+
+                    if (playerDoc.exists()) {
+                        const currentPL = playerDoc.data().overallProfitLoss || 0;
+                        batch.update(playerRef, {
+                            overallProfitLoss: currentPL + player.pl
+                        });
+                    }
+                }
+
+                currentPlayersData.forEach(p => {
+                    const docRef = doc(db, currentGameCollectionRef.path, p.id);
+                    batch.delete(docRef);
+                });
+
+                await batch.commit();
+                
+                console.log("Game saved to history and current game cleared.");
+                
+                handleTabClick({ target: document.getElementById('tab-current') });
+
+            } catch (error) {
+                console.error("Error saving game:", error);
+            }
+        }
+
+        // --- START THE APP ---
+        tabButtons.forEach(btn => btn.addEventListener('click', handleTabClick));
+        addPlayerForm.addEventListener('submit', handleAddPlayer);
+        clearGameBtn.addEventListener('click', handleClearGame);
+        
+        initFirebase();
+
+    </script>
+</body>
+</html>
+
+
