@@ -275,21 +275,17 @@
         async function initFirebase() {
             try {
                 // ------------------------------------------------------------------
-                // PASTE YOUR FIREBASE CONFIG HERE
+                // YOUR FIREBASE CONFIG
                 // ------------------------------------------------------------------
-                // 1. Go to https://console.firebase.google.com/
-                // 2. Create a new project.
-                // 3. Add a Web App (</>) and copy the config object here:
-                
                 const firebaseConfig = {
-                apiKey: "AIzaSyARvh43UdP4DxNJswdoheYk9K0uNSewGXY",
-                authDomain: "my-poker-ledger.firebaseapp.com",
-                projectId: "my-poker-ledger",
-                storageBucket: "my-poker-ledger.firebasestorage.app",
-                messagingSenderId: "161755358947",
-                appId: "1:161755358947:web:7d948394cf4232fad7c7d6",
-                measurementId: "G-HYDRRL7ZF7"
-            };
+                  apiKey: "AIzaSyARvh43UdP4DxNJswdoheYk9K0uNSewGXY",
+                  authDomain: "my-poker-ledger.firebaseapp.com",
+                  projectId: "my-poker-ledger",
+                  storageBucket: "my-poker-ledger.firebasestorage.app",
+                  messagingSenderId: "161755358947",
+                  appId: "1:161755358947:web:7d948394cf4232fad7c7d6",
+                  measurementId: "G-HYDRRL7ZF7"
+                };
                 
                 // ------------------------------------------------------------------
 
@@ -310,9 +306,12 @@
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         userId = user.uid;
-                        const basePath = `artifacts/${appId}/public/data`;
+                        // THIS IS THE FIX:
+                        // The database path is now just based on your App ID,
+                        // removing the "/artifacts" part which only works here.
+                        const basePath = appId; 
                         currentGameCollectionRef = collection(db, `${basePath}/current-game`);
-                        playersCollectionRef = collection(db, `${basePath}/players`); 
+                        playersCollectionRef = collection(db, `${basePah}/players`); 
                         gamesCollectionRef = collection(db, `${basePath}/games`); 
                         
                         listenForCurrentGame();
@@ -533,6 +532,8 @@
             if (modalResolve) modalResolve(null);
         });
 
+
+
         async function getOrCreatePlayer(name) {
             const q = query(playersCollectionRef, where("name", "==", name));
             const querySnapshot = await getDocs(q);
@@ -692,6 +693,4 @@
     </script>
 </body>
 </html>
-
-
 
