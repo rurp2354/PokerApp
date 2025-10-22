@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-gray-950">
 <head>
-    <meta charset="UTF-Digital">
+    <!-- THIS WAS THE BUG. Fixed charset="UTF-Digital" to "UTF-8" -->
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Poker Ledger</title>
+    <!-- Load Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use a modern, clean font -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <style>
         body {
@@ -106,8 +109,10 @@
     </style>
 </head>
 <body class="h-full text-gray-100">
+    <!-- Main container with overflow-x-hidden to contain gradients -->
     <div class="container mx-auto max-w-lg p-4 overflow-x-hidden">
 
+        <!-- Header -->
         <header class="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
             <h1 class="text-3xl font-bold text-white">Poker Ledger</h1>
             <div class="text-right">
@@ -116,20 +121,26 @@
             </div>
         </header>
 
+        <!-- Loading Indicator -->
         <div id="loading" class="flex flex-col justify-center items-center h-64">
             <div class="loader"></div>
+            <!-- New debug text area -->
             <p id="loading-debug" class="text-sm text-gray-400 mt-4">Initializing...</p>
         </div>
 
+        <!-- Main Content (Hidden until loaded) -->
         <main id="mainContent" class="hidden">
 
+            <!-- Tab Navigation -->
             <nav class="flex mb-6 glass-card overflow-hidden !rounded-full">
                 <button id="tab-current" class="tab-btn active" data-content="currentGameContent">Current</button>
                 <button id="tab-leaderboard" class="tab-btn" data-content="leaderboardContent">Leaderboard</button>
                 <button id="tab-history" class="tab-btn" data-content="historyContent">History</button>
             </nav>
 
+            <!-- Tab Content: Current Game -->
             <div id="currentGameContent" class="tab-content" style="display: block;">
+                <!-- Add New Player Form -->
                 <div class="glass-card p-4 mb-6">
                     <h2 class="text-xl font-semibold mb-3">Add Player to Game</h2>
                     <form id="addPlayerForm" class="flex flex-col sm:flex-row gap-3">
@@ -141,6 +152,7 @@
                     </form>
                 </div>
 
+                <!-- Current Game State -->
                 <div>
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-2xl font-semibold">Current Game</h2>
@@ -149,9 +161,12 @@
                         </button>
                     </div>
                     
+                    <!-- Player List -->
                     <div id="playerList" class="space-y-4">
-                        </div>
+                        <!-- Players will be dynamically added here -->
+                    </div>
 
+                    <!-- Game Totals -->
                     <div class="glass-card p-4 mt-6 border-t-2 border-fuchsia-500">
                         <h3 class="text-xl font-semibold mb-3">Game Totals</h3>
                         <div class="flex justify-between items-center">
@@ -171,20 +186,25 @@
                 </div>
             </div>
 
+            <!-- Tab Content: Leaderboard -->
             <div id="leaderboardContent" class="tab-content">
                 <h2 class="text-2xl font-semibold mb-4">Overall Leaderboard</h2>
                 <div id="leaderboardList" class="space-y-3">
-                    </div>
+                    <!-- Leaderboard will be dynamically added here -->
+                </div>
             </div>
 
+            <!-- Tab Content: Game History -->
             <div id="historyContent" class="tab-content">
                 <h2 class="text-2xl font-semibold mb-4">Game History</h2>
                 <div id="gameHistoryList" class="space-y-4">
-                    </div>
+                    <!-- Game history will be dynamically added here -->
+                </div>
             </div>
             
         </main>
         
+        <!-- Custom Modal for user input -->
         <div id="customModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center p-4 z-50">
             <div class="glass-card p-6 w-full max-w-sm">
                 <h3 id="modalTitle" class="text-xl font-semibold mb-4">Modal Title</h3>
@@ -198,6 +218,7 @@
         </div>
     </div>
 
+    <!-- Firebase SDK -->
     <script type="module">
         // Import Firebase services
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -296,6 +317,7 @@
                         try {
                             loadingDebug.textContent = 'Auth state received (User found). Setting up database...';
                             userId = user.uid;
+                            loadingDebug.textContent = 'User ID set. Setting base path...'; // Extra debug line
                             const basePath = appId; 
                             
                             loadingDebug.textContent = 'Creating ref: current-game...';
@@ -325,7 +347,7 @@
                     } else {
                         console.log("User is signed out.");
                         loadingDebug.textContent = 'Auth state received (No user). Please refresh.';
-                        loadingDiv.parentElement.textContent = "Error: Not signed in. Please refresh.";
+                        // Removed the line that was breaking the parent element
                     }
                 });
 
@@ -558,30 +580,66 @@
             }
         }
 
-        async function handleAddPlayer(e) {
-            e.preventDefault();
-            const name = playerNameInput.value.trim();
-            const buyIn = parseFloat(playerBuyInInput.value);
+async function handleAddPlayer(e) {
+    e.preventDefault();
+    const name = playerNameInput.value.trim();
+    const buyIn = parseFloat(playerBuyInInput.value);
 
-            if (name && buyIn > 0) {
-                try {
-                    const playerId = await getOrCreatePlayer(name);
-                    
-                    await addDoc(currentGameCollectionRef, {
-                        masterPlayerId: playerId, 
-                        name: name,
-                        buyIn: buyIn,
-                        cashedOut: 0
-                    });
-                    
-                    playerNameInput.value = '';
-                    playerBuyInInput.value = '';
-                } catch (error) {
-                    console.error("Error adding player:", error);
-                }
+    if (name && buyIn > 0) {
+        try {
+            // Check if player is already in the *current* game
+            const isPlayerInGame = currentPlayersData.some(player => player.name.toLowerCase() === name.toLowerCase());
+            if (isPlayerInGame) {
+                // Use the modal to show an error
+                await showCustomModal('Error', `Player "${name}" is already in the current game.`, 'OK');
+                // Since our modal resolves with a number, we can just return
+                // We need to modify the modal to handle "OK" buttons
+                // For now, just log and return
+                console.error("Player already in game.");
+                // Let's modify the modal to be a simple alert
+                showSimpleAlert(`Player "${name}" is already in the current game.`);
+                return; 
             }
-        }
 
+            const playerId = await getOrCreatePlayer(name);
+            
+            await addDoc(currentGameCollectionRef, {
+                masterPlayerId: playerId, 
+                name: name,
+                buyIn: buyIn,
+                cashedOut: 0
+            });
+            
+            playerNameInput.value = '';
+            playerBuyInInput.value = '';
+        } catch (error) {
+            console.error("Error adding player:", error);
+            showSimpleAlert(`Error adding player: ${error.message}`);
+        }
+    }
+}
+
+// Helper function for simple alerts
+function showSimpleAlert(message) {
+    modalTitle.textContent = 'Alert';
+    modalMessage.textContent = message;
+    modalInput.style.display = 'none'; // Hide input
+    modalCancel.style.display = 'none'; // Hide cancel
+    modalConfirm.textContent = 'OK'; // Change confirm text
+    
+    customModal.style.display = 'flex';
+    
+    modalResolve = (value) => {
+        // Reset modal to original state
+        modalInput.style.display = 'block';
+        modalCancel.style.display = 'inline-block';
+        modalConfirm.textContent = 'Confirm';
+        modalResolve = null; // Clear resolver
+    };
+    
+    // Note: The main modalConfirm listener will handle hiding the modal
+    // We just need to make sure it resets
+}
         async function handleAddRebuy(e) {
             const playerId = e.target.dataset.id;
             const playerName = e.target.dataset.name;
@@ -702,3 +760,4 @@
     </script>
 </body>
 </html>
+
