@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-gray-950">
 <head>
-    <!-- THIS WAS THE BUG. Fixed charset="UTF-Digital" to "UTF-8" -->
+    <!-- Fixed the typo here -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Poker Ledger</title>
@@ -273,6 +273,7 @@
         const modalConfirm = document.getElementById('modalConfirm');
         
         let modalResolve = null;
+        let isAlertModal = false; // Flag to check modal type
 
         // --- INITIALIZATION ---
         
@@ -317,17 +318,23 @@
                         try {
                             loadingDebug.textContent = 'Auth state received (User found). Setting up database...';
                             userId = user.uid;
-                            loadingDebug.textContent = 'User ID set. Setting base path...'; // Extra debug line
-                            const basePath = appId; 
+                            loadingDebug.textContent = 'User ID set. Setting base path...'; 
+                            
+                            // *** THIS IS THE FIX ***
+                            // The path must be Collection/Document/Collection
+                            // We create a top-level collection "poker-ledgers"
+                            // and store this app's data in a document named after the appId
+                            const basePath = `poker-ledgers/${appId}`; 
                             
                             loadingDebug.textContent = 'Creating ref: current-game...';
-                            currentGameCollectionRef = collection(db, `${basePath}/current-game`);
+                            // This path is "poker-ledgers/default-poker-app/current-game" (3 segments)
+                            currentGameCollectionRef = collection(db, basePath, 'current-game');
                             
                             loadingDebug.textContent = 'Creating ref: players...';
-                            playersCollectionRef = collection(db, `${basePath}/players`); 
+                            playersCollectionRef = collection(db, basePath, 'players'); 
                             
                             loadingDebug.textContent = 'Creating ref: games...';
-                            gamesCollectionRef = collection(db, `${basePath}/games`); 
+                            gamesCollectionRef = collection(db, basePath, 'games'); 
                             
                             loadingDebug.textContent = 'Database refs created. Attaching listeners...';
                             // Start all the data listeners
@@ -347,7 +354,6 @@
                     } else {
                         console.log("User is signed out.");
                         loadingDebug.textContent = 'Auth state received (No user). Please refresh.';
-                        // Removed the line that was breaking the parent element
                     }
                 });
 
@@ -541,13 +547,43 @@
                 modalMessage.textContent = message;
                 modalInput.value = '';
                 modalInput.placeholder = placeholder;
+                
+                // Reset to default state
+                modalInput.style.display = 'block';
+                modalCancel.style.display = 'inline-block';
+                modalConfirm.textContent = 'Confirm';
+                isAlertModal = false;
+                
                 customModal.style.display = 'flex';
                 
                 modalResolve = resolve; 
             });
         }
+
+        // Helper function for simple alerts
+        function showSimpleAlert(message) {
+            modalTitle.textContent = 'Alert';
+            modalMessage.textContent = message;
+            modalInput.style.display = 'none'; // Hide input
+            modalCancel.style.display = 'none'; // Hide cancel
+            modalConfirm.textContent = 'OK'; // Change confirm text
+            isAlertModal = true;
+            
+            customModal.style.display = 'flex';
+            
+            return new Promise((resolve) => {
+                modalResolve = resolve; // This will be called by modalConfirm
+            });
+        }
         
         modalConfirm.addEventListener('click', () => {
+            if (isAlertModal) {
+                customModal.style.display = 'none';
+                if (modalResolve) modalResolve(true); // Resolve alert promise
+                isAlertModal = false; // Reset flag
+                return;
+            }
+            
             const value = parseFloat(modalInput.value);
             if (!isNaN(value) && value >= 0) {
                 customModal.style.display = 'none';
@@ -561,85 +597,62 @@
         modalCancel.addEventListener('click', () => {
             customModal.style.display = 'none';
             if (modalResolve) modalResolve(null);
+            isAlertModal = false; // Reset flag
         });
 
 
-
         async function getOrCreatePlayer(name) {
-            const q = query(playersCollectionRef, where("name", "==", name));
-            const querySnapshot = await getDocs(q);
+            // We store players by their lowercase name to prevent duplicates
+            const normalizedName = name.toLowerCase();
+            const playerDocRef = doc(db, playersCollectionRef.path, normalizedName);
+            const playerDoc = await getDoc(playerDocRef);
             
-            if (querySnapshot.empty) {
-                const newPlayerDoc = await addDoc(playersCollectionRef, {
-                    name: name,
+            if (!playerDoc.exists()) {
+                await setDoc(playerDocRef, {
+                    name: name, // Store the original cased name
                     overallProfitLoss: 0
                 });
-                return newPlayerDoc.id;
-            } else {
-                return querySnapshot.docs[0].id;
+            }
+            // Return the ID (which is the normalized name)
+            return normalizedName;
+        }
+
+        async function handleAddPlayer(e) {
+            e.preventDefault();
+            const name = playerNameInput.value.trim();
+            const buyIn = parseFloat(playerBuyInInput.value);
+
+            if (name && buyIn > 0) {
+                try {
+                    // Check if player is already in the *current* game
+                    const isPlayerInGame = currentPlayersData.some(player => player.name.toLowerCase() === name.toLowerCase());
+                    if (isPlayerInGame) {
+                        await showSimpleAlert(`Player "${name}" is already in the current game.`);
+                        return; 
+                    }
+
+                    const playerId = await getOrCreatePlayer(name);
+                    
+                    // We can use the masterPlayerId (normalized name) as the document ID
+                    // in the current game as well, for consistency.
+                    const gamePlayerDocRef = doc(db, currentGameCollectionRef.path, playerId);
+                    
+                    await setDoc(gamePlayerDocRef, {
+                        masterPlayerId: playerId, 
+                        name: name, // Store original cased name
+                        buyIn: buyIn,
+                        cashedOut: 0
+                    });
+                    
+                    playerNameInput.value = '';
+                    playerBuyInInput.value = '';
+                } catch (error) {
+                    console.error("Error adding player:", error);
+                    await showSimpleAlert(`Error adding player: ${error.message}`);
+                }
             }
         }
 
-async function handleAddPlayer(e) {
-    e.preventDefault();
-    const name = playerNameInput.value.trim();
-    const buyIn = parseFloat(playerBuyInInput.value);
-
-    if (name && buyIn > 0) {
-        try {
-            // Check if player is already in the *current* game
-            const isPlayerInGame = currentPlayersData.some(player => player.name.toLowerCase() === name.toLowerCase());
-            if (isPlayerInGame) {
-                // Use the modal to show an error
-                await showCustomModal('Error', `Player "${name}" is already in the current game.`, 'OK');
-                // Since our modal resolves with a number, we can just return
-                // We need to modify the modal to handle "OK" buttons
-                // For now, just log and return
-                console.error("Player already in game.");
-                // Let's modify the modal to be a simple alert
-                showSimpleAlert(`Player "${name}" is already in the current game.`);
-                return; 
-            }
-
-            const playerId = await getOrCreatePlayer(name);
-            
-            await addDoc(currentGameCollectionRef, {
-                masterPlayerId: playerId, 
-                name: name,
-                buyIn: buyIn,
-                cashedOut: 0
-            });
-            
-            playerNameInput.value = '';
-            playerBuyInInput.value = '';
-        } catch (error) {
-            console.error("Error adding player:", error);
-            showSimpleAlert(`Error adding player: ${error.message}`);
-        }
-    }
-}
-
-// Helper function for simple alerts
-function showSimpleAlert(message) {
-    modalTitle.textContent = 'Alert';
-    modalMessage.textContent = message;
-    modalInput.style.display = 'none'; // Hide input
-    modalCancel.style.display = 'none'; // Hide cancel
-    modalConfirm.textContent = 'OK'; // Change confirm text
-    
-    customModal.style.display = 'flex';
-    
-    modalResolve = (value) => {
-        // Reset modal to original state
-        modalInput.style.display = 'block';
-        modalCancel.style.display = 'inline-block';
-        modalConfirm.textContent = 'Confirm';
-        modalResolve = null; // Clear resolver
-    };
-    
-    // Note: The main modalConfirm listener will handle hiding the modal
-    // We just need to make sure it resets
-}
         async function handleAddRebuy(e) {
             const playerId = e.target.dataset.id;
             const playerName = e.target.dataset.name;
@@ -714,7 +727,8 @@ function showSimpleAlert(message) {
             try {
                 const batch = writeBatch(db);
 
-                const gameDocRef = doc(collection(db, gamesCollectionRef.path));
+                // Create a new document in the "games" collection
+                const gameDocRef = doc(gamesCollectionRef); // Auto-generates an ID
                 batch.set(gameDocRef, {
                     date: Timestamp.now(),
                     totalPot: totalPot,
@@ -722,6 +736,7 @@ function showSimpleAlert(message) {
                     players: playersForHistory
                 });
 
+                // Update the master player list (leaderboard)
                 for (const player of playersForHistory) {
                     const playerRef = doc(db, playersCollectionRef.path, player.masterPlayerId);
                     const playerDoc = await getDoc(playerRef); 
@@ -734,6 +749,7 @@ function showSimpleAlert(message) {
                     }
                 }
 
+                // Delete all players from the "current-game" collection
                 currentPlayersData.forEach(p => {
                     const docRef = doc(db, currentGameCollectionRef.path, p.id);
                     batch.delete(docRef);
@@ -743,10 +759,12 @@ function showSimpleAlert(message) {
                 
                 console.log("Game saved to history and current game cleared.");
                 
+                // Switch back to the (now empty) current game tab
                 handleTabClick({ target: document.getElementById('tab-current') });
 
             } catch (error) {
                 console.error("Error saving game:", error);
+                await showSimpleAlert(`Error saving game: ${error.message}`);
             }
         }
 
