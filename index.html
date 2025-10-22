@@ -121,8 +121,10 @@
         </header>
 
         <!-- Loading Indicator -->
-        <div id="loading" class="flex justify-center items-center h-64">
+        <div id="loading" class="flex flex-col justify-center items-center h-64">
             <div class="loader"></div>
+            <!-- New debug text area -->
+            <p id="loading-debug" class="text-sm text-gray-400 mt-4">Initializing...</p>
         </div>
 
         <!-- Main Content (Hidden until loaded) -->
@@ -245,6 +247,7 @@
 
         // --- DOM Elements ---
         const loadingDiv = document.getElementById('loading');
+        const loadingDebug = document.getElementById('loading-debug'); // New element
         const mainContent = document.getElementById('mainContent');
         const appIdDisplay = document.getElementById('appIdDisplay');
         const addPlayerForm = document.getElementById('addPlayerForm');
@@ -289,33 +292,41 @@
                 
                 // ------------------------------------------------------------------
 
+                loadingDebug.textContent = 'Config loaded. Initializing app...';
                 // This App ID is your "shared room name". 
                 // You can change 'default-poker-app' to a unique name.
                 appId = 'default-poker-app'; 
                 
                 appIdDisplay.textContent = appId;
                 const app = initializeApp(firebaseConfig);
+                loadingDebug.textContent = 'App initialized. Getting Firestore...';
                 db = getFirestore(app);
+                loadingDebug.textContent = 'Firestore loaded. Getting Auth...';
                 auth = getAuth(app);
 
+                loadingDebug.textContent = 'Auth loaded. Setting persistence...';
                 await setPersistence(auth, inMemoryPersistence);
 
-                // Sign in anonymously since we are not on the internal platform
+                loadingDebug.textContent = 'Persistence set. Signing in anonymously...';
                 await signInAnonymously(auth);
+                loadingDebug.textContent = 'Sign-in complete. Waiting for auth state...';
 
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
+                        loadingDebug.textContent = 'Auth state received (User found). Setting up database...';
                         userId = user.uid;
                         const basePath = appId; 
                         currentGameCollectionRef = collection(db, `${basePath}/current-game`);
                         playersCollectionRef = collection(db, `${basePath}/players`); 
                         gamesCollectionRef = collection(db, `${basePath}/games`); 
                         
+                        loadingDebug.textContent = 'Database refs created. Attaching listeners...';
                         // Start all the data listeners
                         listenForCurrentGame();
                         listenForLeaderboard();
                         listenForGameHistory();
                         
+                        loadingDebug.textContent = 'Listeners attached. Loading app...';
                         // *** THIS IS THE FIX ***
                         // Immediately hide the loader and show the app.
                         // The listeners will populate the data as it arrives.
@@ -324,13 +335,15 @@
 
                     } else {
                         console.log("User is signed out.");
-                        loadingDiv.textContent = "Error: Not signed in. Please refresh.";
+                        loadingDebug.textContent = 'Auth state received (No user). Please refresh.';
+                        loadingDiv.parentElement.textContent = "Error: Not signed in. Please refresh.";
                     }
                 });
 
             } catch (error) {
                 console.error("Firebase Initialization Error:", error);
-                loadingDiv.textContent = `Error: ${error.message}. Check console & refresh.`;
+                loadingDebug.textContent = `Error: ${error.message}`;
+                loadingDiv.parentElement.textContent = `Error: ${error.message}. Check console & refresh.`;
             }
         }
 
@@ -351,7 +364,7 @@
 
             }, (error) => {
                 console.error("Error listening to current game:", error);
-                playerListDiv.innerHTML = '<p class="text-red-500 text-center">Error loading game data. Check permissions.</p>';
+                playerListDiv.innerHTML = `<p class="text-red-500 text-center">Error loading game data: ${error.message}</p>`;
             });
         }
 
@@ -365,7 +378,7 @@
                 renderLeaderboard(players);
             }, (error) => {
                 console.error("Error listening to leaderboard:", error);
-                leaderboardListDiv.innerHTML = '<p class="text-red-500 text-center">Error loading leaderboard.</p>';
+                leaderboardListDiv.innerHTML = `<p class="text-red-500 text-center">Error loading leaderboard: ${error.message}</p>`;
             });
         }
 
@@ -379,7 +392,7 @@
                 renderGameHistory(games);
             }, (error) => {
                 console.error("Error listening to game history:", error);
-                gameHistoryListDiv.innerHTML = '<p class="text-red-500 text-center">Error loading game history.</p>';
+                gameHistoryListDiv.innerHTML = `<p class="text-red-500 text-center">Error loading game history: ${error.message}</p>`;
             });
         }
 
