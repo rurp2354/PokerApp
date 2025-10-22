@@ -573,7 +573,8 @@
             });
         }
         
-        function showCustomModal(title, message, placeholder = 'Enter amount ($)') {
+        // *** THIS FUNCTION IS NOW FIXED ***
+        function showCustomModal(title, message, placeholder = 'Enter amount ($)', inputType = 'number') {
             return new Promise((resolve) => {
                 modalTitle.textContent = title;
                 modalMessage.textContent = message;
@@ -582,7 +583,7 @@
                 
                 // Reset to default state
                 modalInput.style.display = 'block';
-                modalInput.type = 'number'; // Ensure it's number for amounts
+                modalInput.type = inputType; // <-- This is the fix
                 modalCancel.style.display = 'inline-block';
                 modalConfirm.textContent = 'Confirm';
                 modalConfirm.classList.remove('danger-button');
@@ -757,7 +758,7 @@
                 ? `The pot is unbalanced by $${difference}. Are you sure you want to end and save?`
                 : 'Are you sure you want to end and save this game to history?';
                 
-            const confirmation = await showCustomModal('End Game?', confirmationMsg, 'Type 1 to confirm');
+            const confirmation = await showCustomModal('End Game?', confirmationMsg, 'Type 1 to confirm', 'number');
             
             if (confirmation !== 1) return;
 
@@ -801,8 +802,8 @@
         // --- NEW SETTINGS FUNCTIONS ---
         
         async function handleResetLeaderboard() {
-            const confirmation = await showCustomModal('Reset Leaderboard?', 'This will set all player P/L to $0. Type "RESET" to confirm.', 'Type RESET');
-            modalInput.type = 'text'; // Change input type for text
+            // *** THIS IS THE FIX: Added 'text' as the 4th argument ***
+            const confirmation = await showCustomModal('Reset Leaderboard?', 'This will set all player P/L to $0. Type "RESET" to confirm.', 'Type RESET', 'text');
             
             if (confirmation !== 'RESET') {
                 await showSimpleAlert('Reset cancelled. You must type "RESET" to confirm.');
@@ -825,8 +826,8 @@
         }
         
         async function handleDeleteGameHistory() {
-            const confirmation = await showCustomModal('Delete All History?', 'This will permanently delete all game history. Type "DELETE" to confirm.', 'Type DELETE');
-            modalInput.type = 'text'; // Change input type for text
+            // *** THIS IS THE FIX: Added 'text' as the 4th argument ***
+            const confirmation = await showCustomModal('Delete All History?', 'This will permanently delete all game history. Type "DELETE" to confirm.', 'Type DELETE', 'text');
             
             if (confirmation !== 'DELETE') {
                 await showSimpleAlert('Delete cancelled. You must type "DELETE" to confirm.');
