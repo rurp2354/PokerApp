@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-gray-950">
 <head>
-    <!-- Fixed the typo here -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Poker Ledger</title>
@@ -76,6 +75,21 @@
                         0 0 30px theme('colors.fuchsia.500');
             @apply bg-fuchsia-500;
         }
+        
+        /* Danger button style */
+        .danger-button {
+            @apply bg-red-600 text-white font-bold py-2 px-4 rounded-full transition-all;
+            box-shadow: 0 0 5px theme('colors.red.500'),
+                        0 0 10px theme('colors.red.500'),
+                        0 0 15px theme('colors.red.600');
+        }
+        .danger-button:hover {
+            box-shadow: 0 0 10px theme('colors.red.400'),
+                        0 0 20px theme('colors.red.400'),
+                        0 0 30px theme('colors.red.500');
+            @apply bg-red-500;
+        }
+
 
         /* Simple spinner for loading */
         .loader {
@@ -124,7 +138,6 @@
         <!-- Loading Indicator -->
         <div id="loading" class="flex flex-col justify-center items-center h-64">
             <div class="loader"></div>
-            <!-- New debug text area -->
             <p id="loading-debug" class="text-sm text-gray-400 mt-4">Initializing...</p>
         </div>
 
@@ -136,6 +149,8 @@
                 <button id="tab-current" class="tab-btn active" data-content="currentGameContent">Current</button>
                 <button id="tab-leaderboard" class="tab-btn" data-content="leaderboardContent">Leaderboard</button>
                 <button id="tab-history" class="tab-btn" data-content="historyContent">History</button>
+                <!-- New Settings Tab -->
+                <button id="tab-settings" class="tab-btn" data-content="settingsContent">Settings</button>
             </nav>
 
             <!-- Tab Content: Current Game -->
@@ -156,7 +171,7 @@
                 <div>
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-2xl font-semibold">Current Game</h2>
-                        <button id="clearGame" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-1 px-3 rounded-full text-sm transition-colors shadow-[0_0_10px_rgba(220,38,38,0.7)]">
+                        <button id="clearGame" class="danger-button !py-1 !px-3 !text-sm">
                             End & Save Game
                         </button>
                     </div>
@@ -199,6 +214,26 @@
                 <h2 class="text-2xl font-semibold mb-4">Game History</h2>
                 <div id="gameHistoryList" class="space-y-4">
                     <!-- Game history will be dynamically added here -->
+                </div>
+            </div>
+            
+            <!-- Tab Content: Settings -->
+            <div id="settingsContent" class="tab-content">
+                <h2 class="text-2xl font-semibold mb-4">Settings (Danger Zone)</h2>
+                <div class="glass-card p-6 space-y-6">
+                    <!-- Reset Leaderboard -->
+                    <div>
+                        <h3 class="text-xl font-semibold text-white">Reset Leaderboard</h3>
+                        <p class="text-gray-400 text-sm mb-3">This will set all players' "Overall P/L" back to $0, but will NOT delete players or game history.</p>
+                        <button id="resetLeaderboardBtn" class="danger-button w-full">Reset Leaderboard</button>
+                    </div>
+                    
+                    <!-- Delete Game History -->
+                    <div>
+                        <h3 class="text-xl font-semibold text-white">Delete Game History</h3>
+                        <p class="text-gray-400 text-sm mb-3">This will permanently delete all saved game history. This action cannot be undone.</p>
+                        <button id="deleteHistoryBtn" class="danger-button w-full">Delete All History</button>
+                    </div>
                 </div>
             </div>
             
@@ -248,7 +283,7 @@
 
         // --- DOM Elements ---
         const loadingDiv = document.getElementById('loading');
-        const loadingDebug = document.getElementById('loading-debug'); // New element
+        const loadingDebug = document.getElementById('loading-debug');
         const mainContent = document.getElementById('mainContent');
         const appIdDisplay = document.getElementById('appIdDisplay');
         const addPlayerForm = document.getElementById('addPlayerForm');
@@ -264,6 +299,10 @@
         const tabContents = document.querySelectorAll('.tab-content');
         const leaderboardListDiv = document.getElementById('leaderboardList');
         const gameHistoryListDiv = document.getElementById('gameHistoryList');
+        
+        // New Settings Elements
+        const resetLeaderboardBtn = document.getElementById('resetLeaderboardBtn');
+        const deleteHistoryBtn = document.getElementById('deleteHistoryBtn');
         
         const customModal = document.getElementById('customModal');
         const modalTitle = document.getElementById('modalTitle');
@@ -295,11 +334,9 @@
                 // ------------------------------------------------------------------
 
                 loadingDebug.textContent = 'Config loaded. Initializing app...';
-                // This App ID is your "shared room name". 
-                // You can change 'default-poker-app' to a unique name.
                 appId = 'default-poker-app'; 
-                
                 appIdDisplay.textContent = appId;
+                
                 const app = initializeApp(firebaseConfig);
                 loadingDebug.textContent = 'App initialized. Getting Firestore...';
                 db = getFirestore(app);
@@ -320,14 +357,9 @@
                             userId = user.uid;
                             loadingDebug.textContent = 'User ID set. Setting base path...'; 
                             
-                            // *** THIS IS THE FIX ***
-                            // The path must be Collection/Document/Collection
-                            // We create a top-level collection "poker-ledgers"
-                            // and store this app's data in a document named after the appId
                             const basePath = `poker-ledgers/${appId}`; 
                             
                             loadingDebug.textContent = 'Creating ref: current-game...';
-                            // This path is "poker-ledgers/default-poker-app/current-game" (3 segments)
                             currentGameCollectionRef = collection(db, basePath, 'current-game');
                             
                             loadingDebug.textContent = 'Creating ref: players...';
@@ -550,8 +582,11 @@
                 
                 // Reset to default state
                 modalInput.style.display = 'block';
+                modalInput.type = 'number'; // Ensure it's number for amounts
                 modalCancel.style.display = 'inline-block';
                 modalConfirm.textContent = 'Confirm';
+                modalConfirm.classList.remove('danger-button');
+                modalConfirm.classList.add('neon-button');
                 isAlertModal = false;
                 
                 customModal.style.display = 'flex';
@@ -584,6 +619,14 @@
                 return;
             }
             
+            // Handle confirmation for text input (like delete)
+            if (modalInput.type === 'text') {
+                 customModal.style.display = 'none';
+                if (modalResolve) modalResolve(modalInput.value);
+                return;
+            }
+            
+            // Handle confirmation for number input
             const value = parseFloat(modalInput.value);
             if (!isNaN(value) && value >= 0) {
                 customModal.style.display = 'none';
@@ -602,7 +645,6 @@
 
 
         async function getOrCreatePlayer(name) {
-            // We store players by their lowercase name to prevent duplicates
             const normalizedName = name.toLowerCase();
             const playerDocRef = doc(db, playersCollectionRef.path, normalizedName);
             const playerDoc = await getDoc(playerDocRef);
@@ -613,7 +655,6 @@
                     overallProfitLoss: 0
                 });
             }
-            // Return the ID (which is the normalized name)
             return normalizedName;
         }
 
@@ -624,7 +665,6 @@
 
             if (name && buyIn > 0) {
                 try {
-                    // Check if player is already in the *current* game
                     const isPlayerInGame = currentPlayersData.some(player => player.name.toLowerCase() === name.toLowerCase());
                     if (isPlayerInGame) {
                         await showSimpleAlert(`Player "${name}" is already in the current game.`);
@@ -632,14 +672,11 @@
                     }
 
                     const playerId = await getOrCreatePlayer(name);
-                    
-                    // We can use the masterPlayerId (normalized name) as the document ID
-                    // in the current game as well, for consistency.
                     const gamePlayerDocRef = doc(db, currentGameCollectionRef.path, playerId);
                     
                     await setDoc(gamePlayerDocRef, {
                         masterPlayerId: playerId, 
-                        name: name, // Store original cased name
+                        name: name,
                         buyIn: buyIn,
                         cashedOut: 0
                     });
@@ -726,9 +763,7 @@
 
             try {
                 const batch = writeBatch(db);
-
-                // Create a new document in the "games" collection
-                const gameDocRef = doc(gamesCollectionRef); // Auto-generates an ID
+                const gameDocRef = doc(gamesCollectionRef); 
                 batch.set(gameDocRef, {
                     date: Timestamp.now(),
                     totalPot: totalPot,
@@ -736,7 +771,6 @@
                     players: playersForHistory
                 });
 
-                // Update the master player list (leaderboard)
                 for (const player of playersForHistory) {
                     const playerRef = doc(db, playersCollectionRef.path, player.masterPlayerId);
                     const playerDoc = await getDoc(playerRef); 
@@ -749,17 +783,13 @@
                     }
                 }
 
-                // Delete all players from the "current-game" collection
                 currentPlayersData.forEach(p => {
                     const docRef = doc(db, currentGameCollectionRef.path, p.id);
                     batch.delete(docRef);
                 });
 
                 await batch.commit();
-                
                 console.log("Game saved to history and current game cleared.");
-                
-                // Switch back to the (now empty) current game tab
                 handleTabClick({ target: document.getElementById('tab-current') });
 
             } catch (error) {
@@ -767,11 +797,66 @@
                 await showSimpleAlert(`Error saving game: ${error.message}`);
             }
         }
+        
+        // --- NEW SETTINGS FUNCTIONS ---
+        
+        async function handleResetLeaderboard() {
+            const confirmation = await showCustomModal('Reset Leaderboard?', 'This will set all player P/L to $0. Type "RESET" to confirm.', 'Type RESET');
+            modalInput.type = 'text'; // Change input type for text
+            
+            if (confirmation !== 'RESET') {
+                await showSimpleAlert('Reset cancelled. You must type "RESET" to confirm.');
+                return;
+            }
+            
+            try {
+                const querySnapshot = await getDocs(playersCollectionRef);
+                const batch = writeBatch(db);
+                querySnapshot.forEach((doc) => {
+                    batch.update(doc.ref, { overallProfitLoss: 0 });
+                });
+                await batch.commit();
+                await showSimpleAlert('Leaderboard has been reset.');
+                
+            } catch (error) {
+                console.error("Error resetting leaderboard:", error);
+                await showSimpleAlert(`Error: ${error.message}`);
+            }
+        }
+        
+        async function handleDeleteGameHistory() {
+            const confirmation = await showCustomModal('Delete All History?', 'This will permanently delete all game history. Type "DELETE" to confirm.', 'Type DELETE');
+            modalInput.type = 'text'; // Change input type for text
+            
+            if (confirmation !== 'DELETE') {
+                await showSimpleAlert('Delete cancelled. You must type "DELETE" to confirm.');
+                return;
+            }
+            
+            try {
+                const querySnapshot = await getDocs(gamesCollectionRef);
+                const batch = writeBatch(db);
+                querySnapshot.forEach((doc) => {
+                    batch.delete(doc.ref);
+                });
+                await batch.commit();
+                await showSimpleAlert('All game history has been deleted.');
+                
+            } catch (error) {
+                console.error("Error deleting history:", error);
+                await showSimpleAlert(`Error: ${error.message}`);
+            }
+        }
+        
 
         // --- START THE APP ---
         tabButtons.forEach(btn => btn.addEventListener('click', handleTabClick));
         addPlayerForm.addEventListener('submit', handleAddPlayer);
         clearGameBtn.addEventListener('click', handleClearGame);
+        
+        // New button listeners
+        resetLeaderboardBtn.addEventListener('click', handleResetLeaderboard);
+        deleteHistoryBtn.addEventListener('click', handleDeleteGameHistory);
         
         initFirebase();
 
