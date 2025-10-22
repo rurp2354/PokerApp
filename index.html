@@ -306,26 +306,31 @@
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         userId = user.uid;
-                        // THIS IS THE FIX:
-                        // The database path is now just based on your App ID,
-                        // removing the "/artifacts" part which only works here.
                         const basePath = appId; 
                         currentGameCollectionRef = collection(db, `${basePath}/current-game`);
-                        // *** THIS IS THE FIX - Corrected basePah to basePath ***
                         playersCollectionRef = collection(db, `${basePath}/players`); 
                         gamesCollectionRef = collection(db, `${basePath}/games`); 
                         
+                        // Start all the data listeners
                         listenForCurrentGame();
                         listenForLeaderboard();
                         listenForGameHistory();
+                        
+                        // *** THIS IS THE FIX ***
+                        // Immediately hide the loader and show the app.
+                        // The listeners will populate the data as it arrives.
+                        loadingDiv.style.display = 'none';
+                        mainContent.style.display = 'block';
+
                     } else {
                         console.log("User is signed out.");
+                        loadingDiv.textContent = "Error: Not signed in. Please refresh.";
                     }
                 });
 
             } catch (error) {
                 console.error("Firebase Initialization Error:", error);
-                loadingDiv.textContent = "Error loading app. Please refresh.";
+                loadingDiv.textContent = `Error: ${error.message}. Check console & refresh.`;
             }
         }
 
@@ -342,10 +347,11 @@
                 currentPlayersData = players; 
                 renderCurrentGame(players);
                 
-                loadingDiv.style.display = 'none';
-                mainContent.style.display = 'block';
+                // *** REMOVED loading hide from here ***
+
             }, (error) => {
                 console.error("Error listening to current game:", error);
+                playerListDiv.innerHTML = '<p class="text-red-500 text-center">Error loading game data. Check permissions.</p>';
             });
         }
 
@@ -359,6 +365,7 @@
                 renderLeaderboard(players);
             }, (error) => {
                 console.error("Error listening to leaderboard:", error);
+                leaderboardListDiv.innerHTML = '<p class="text-red-500 text-center">Error loading leaderboard.</p>';
             });
         }
 
@@ -372,6 +379,7 @@
                 renderGameHistory(games);
             }, (error) => {
                 console.error("Error listening to game history:", error);
+                gameHistoryListDiv.innerHTML = '<p class="text-red-500 text-center">Error loading game history.</p>';
             });
         }
 
