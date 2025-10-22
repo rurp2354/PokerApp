@@ -274,10 +274,29 @@
         
         async function initFirebase() {
             try {
-                appId = typeof __app_id !== 'undefined' ? __app_id : 'default-poker-app';
-                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                // ------------------------------------------------------------------
+                // PASTE YOUR FIREBASE CONFIG HERE
+                // ------------------------------------------------------------------
+                // 1. Go to https://console.firebase.google.com/
+                // 2. Create a new project.
+                // 3. Add a Web App (</>) and copy the config object here:
+                
+                const firebaseConfig = {
+                apiKey: "AIzaSyARvh43UdP4DxNJswdoheYk9K0uNSewGXY",
+                authDomain: "my-poker-ledger.firebaseapp.com",
+                projectId: "my-poker-ledger",
+                storageBucket: "my-poker-ledger.firebasestorage.app",
+                messagingSenderId: "161755358947",
+                appId: "1:161755358947:web:7d948394cf4232fad7c7d6",
+                measurementId: "G-HYDRRL7ZF7"
+            };
+                
+                // ------------------------------------------------------------------
 
+                // This App ID is your "shared room name". 
+                // You can change 'default-poker-app' to a unique name.
+                appId = 'default-poker-app'; 
+                
                 appIdDisplay.textContent = appId;
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
@@ -285,11 +304,8 @@
 
                 await setPersistence(auth, inMemoryPersistence);
 
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                // Sign in anonymously since we are not on the internal platform
+                await signInAnonymously(auth);
 
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
@@ -676,5 +692,6 @@
     </script>
 </body>
 </html>
+
 
 
