@@ -1,12 +1,10 @@
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-gray-950">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-Digital">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Poker Ledger</title>
-    <!-- Load Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Use a modern, clean font -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <style>
         body {
@@ -108,10 +106,8 @@
     </style>
 </head>
 <body class="h-full text-gray-100">
-    <!-- Main container with overflow-x-hidden to contain gradients -->
     <div class="container mx-auto max-w-lg p-4 overflow-x-hidden">
 
-        <!-- Header -->
         <header class="flex justify-between items-center mb-4 pb-4 border-b border-white/10">
             <h1 class="text-3xl font-bold text-white">Poker Ledger</h1>
             <div class="text-right">
@@ -120,26 +116,20 @@
             </div>
         </header>
 
-        <!-- Loading Indicator -->
         <div id="loading" class="flex flex-col justify-center items-center h-64">
             <div class="loader"></div>
-            <!-- New debug text area -->
             <p id="loading-debug" class="text-sm text-gray-400 mt-4">Initializing...</p>
         </div>
 
-        <!-- Main Content (Hidden until loaded) -->
         <main id="mainContent" class="hidden">
 
-            <!-- Tab Navigation -->
             <nav class="flex mb-6 glass-card overflow-hidden !rounded-full">
                 <button id="tab-current" class="tab-btn active" data-content="currentGameContent">Current</button>
                 <button id="tab-leaderboard" class="tab-btn" data-content="leaderboardContent">Leaderboard</button>
                 <button id="tab-history" class="tab-btn" data-content="historyContent">History</button>
             </nav>
 
-            <!-- Tab Content: Current Game -->
             <div id="currentGameContent" class="tab-content" style="display: block;">
-                <!-- Add New Player Form -->
                 <div class="glass-card p-4 mb-6">
                     <h2 class="text-xl font-semibold mb-3">Add Player to Game</h2>
                     <form id="addPlayerForm" class="flex flex-col sm:flex-row gap-3">
@@ -151,7 +141,6 @@
                     </form>
                 </div>
 
-                <!-- Current Game State -->
                 <div>
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-2xl font-semibold">Current Game</h2>
@@ -160,12 +149,9 @@
                         </button>
                     </div>
                     
-                    <!-- Player List -->
                     <div id="playerList" class="space-y-4">
-                        <!-- Players will be dynamically added here -->
-                    </div>
+                        </div>
 
-                    <!-- Game Totals -->
                     <div class="glass-card p-4 mt-6 border-t-2 border-fuchsia-500">
                         <h3 class="text-xl font-semibold mb-3">Game Totals</h3>
                         <div class="flex justify-between items-center">
@@ -185,25 +171,20 @@
                 </div>
             </div>
 
-            <!-- Tab Content: Leaderboard -->
             <div id="leaderboardContent" class="tab-content">
                 <h2 class="text-2xl font-semibold mb-4">Overall Leaderboard</h2>
                 <div id="leaderboardList" class="space-y-3">
-                    <!-- Leaderboard will be dynamically added here -->
-                </div>
+                    </div>
             </div>
 
-            <!-- Tab Content: Game History -->
             <div id="historyContent" class="tab-content">
                 <h2 class="text-2xl font-semibold mb-4">Game History</h2>
                 <div id="gameHistoryList" class="space-y-4">
-                    <!-- Game history will be dynamically added here -->
-                </div>
+                    </div>
             </div>
             
         </main>
         
-        <!-- Custom Modal for user input -->
         <div id="customModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center p-4 z-50">
             <div class="glass-card p-6 w-full max-w-sm">
                 <h3 id="modalTitle" class="text-xl font-semibold mb-4">Modal Title</h3>
@@ -217,7 +198,6 @@
         </div>
     </div>
 
-    <!-- Firebase SDK -->
     <script type="module">
         // Import Firebase services
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -313,25 +293,34 @@
 
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
-                        loadingDebug.textContent = 'Auth state received (User found). Setting up database...';
-                        userId = user.uid;
-                        const basePath = appId; 
-                        currentGameCollectionRef = collection(db, `${basePath}/current-game`);
-                        playersCollectionRef = collection(db, `${basePath}/players`); 
-                        gamesCollectionRef = collection(db, `${basePath}/games`); 
-                        
-                        loadingDebug.textContent = 'Database refs created. Attaching listeners...';
-                        // Start all the data listeners
-                        listenForCurrentGame();
-                        listenForLeaderboard();
-                        listenForGameHistory();
-                        
-                        loadingDebug.textContent = 'Listeners attached. Loading app...';
-                        // *** THIS IS THE FIX ***
-                        // Immediately hide the loader and show the app.
-                        // The listeners will populate the data as it arrives.
-                        loadingDiv.style.display = 'none';
-                        mainContent.style.display = 'block';
+                        try {
+                            loadingDebug.textContent = 'Auth state received (User found). Setting up database...';
+                            userId = user.uid;
+                            const basePath = appId; 
+                            
+                            loadingDebug.textContent = 'Creating ref: current-game...';
+                            currentGameCollectionRef = collection(db, `${basePath}/current-game`);
+                            
+                            loadingDebug.textContent = 'Creating ref: players...';
+                            playersCollectionRef = collection(db, `${basePath}/players`); 
+                            
+                            loadingDebug.textContent = 'Creating ref: games...';
+                            gamesCollectionRef = collection(db, `${basePath}/games`); 
+                            
+                            loadingDebug.textContent = 'Database refs created. Attaching listeners...';
+                            // Start all the data listeners
+                            listenForCurrentGame();
+                            listenForLeaderboard();
+                            listenForGameHistory();
+                            
+                            loadingDebug.textContent = 'Listeners attached. Loading app...';
+                            // Immediately hide the loader and show the app.
+                            loadingDiv.style.display = 'none';
+                            mainContent.style.display = 'block';
+                        } catch (e) {
+                            console.error("Error during auth state change:", e);
+                            loadingDebug.textContent = `Error in auth state: ${e.message}`;
+                        }
 
                     } else {
                         console.log("User is signed out.");
@@ -360,8 +349,6 @@
                 currentPlayersData = players; 
                 renderCurrentGame(players);
                 
-                // *** REMOVED loading hide from here ***
-
             }, (error) => {
                 console.error("Error listening to current game:", error);
                 playerListDiv.innerHTML = `<p class="text-red-500 text-center">Error loading game data: ${error.message}</p>`;
@@ -715,4 +702,3 @@
     </script>
 </body>
 </html>
-
