@@ -311,7 +311,8 @@
                         // removing the "/artifacts" part which only works here.
                         const basePath = appId; 
                         currentGameCollectionRef = collection(db, `${basePath}/current-game`);
-                        playersCollectionRef = collection(db, `${basePah}/players`); 
+                        // *** THIS IS THE FIX - Corrected basePah to basePath ***
+                        playersCollectionRef = collection(db, `${basePath}/players`); 
                         gamesCollectionRef = collection(db, `${basePath}/games`); 
                         
                         listenForCurrentGame();
